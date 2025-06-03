@@ -97,12 +97,12 @@ const getEffectiveWorkDaysArray = (year, month) => {
     return days;
 };
 
-
 const formatTime = (timestamp) => {
     if (!timestamp) return "--:--";
     const date = timestamp instanceof Timestamp ? timestamp.toDate() : (timestamp instanceof Date ? timestamp : null);
     if (!date) return "--:--";
-    return `<span class="math-inline">\{String\(date\.getHours\(\)\)\.padStart\(2, '0'\)\}\:</span>{String(date.getMinutes()).padStart(2, '0')}`;
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
 };
 
 const formatDuration = (totalMinutes) => {
@@ -116,7 +116,7 @@ const getDateString = (dateObj) => {
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const day = String(dateObj.getDate()).padStart(2, '0');
-    return `<span class="math-inline">\{year\}\-</span>{month}-${day}`;
+    return `${year}-${month}-${day}`;
 };
 
 const getMonday = (d) => {
@@ -233,6 +233,7 @@ const logAdminActivity = async (adminUser, actionType, details, targetUser = nul
 
 
 const App = () => {
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
     const [userId, setUserId] = useState(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
@@ -535,7 +536,7 @@ const App = () => {
             const hourlyRateSystem2 = targetHoursSystem2ToUse > 0 ? dailyRateSystem2ToUse / targetHoursSystem2ToUse : 0;
             const dailySalarySystem2 = (dailyTotalWorkMinutes / 60) * hourlyRateSystem2;
             let notes = `Sistem 2: Tarif Harian`;
-            if (employeeProfile?.customDailyRateSystem2 != null) notes += ` (Kustom Rp <span class="math-inline">\{dailyRateSystem2ToUse\.toLocaleString\('id\-ID'\)\}</span>{employeeProfile?.customTargetHoursSystem2 != null ? ` / ${targetHoursSystem2ToUse} jam` : ''})`;
+            if (employeeProfile?.customDailyRateSystem2 != null) notes += ` (Kustom Rp ${dailyRateSystem2ToUse.toLocaleString('id-ID')}${employeeProfile?.customTargetHoursSystem2 != null ? ` / ${targetHoursSystem2ToUse} jam` : ''})`;
             return { base: 0, overtime: 0, total: Math.round(dailySalarySystem2), notes };
         } else { // Sistem Gaji 1
             let dailyBase = 0;
@@ -615,7 +616,7 @@ const App = () => {
                 } else {
                     const uId = user.uid;
                     try {
-                        const userProfileRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{uId}`);
+                        const userProfileRef = doc(db, `artifacts/${appId}/users/${uId}`);
                         const userProfileSnap = await getDoc(userProfileRef);
 
                         if (userProfileSnap.exists()) {
@@ -655,8 +656,8 @@ const App = () => {
 
     const fetchWorkLogForMonth = useCallback(async (uid, year, month) => {
         if (!db || !uid || !appId) return {}; 
-        const monthString = `<span class="math-inline">\{year\}\-</span>{String(month + 1).padStart(2, '0')}`;
-        const workLogCollectionRef = collection(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{uid}/work_records`);
+        const monthString = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const workLogCollectionRef = collection(db, `artifacts/${appId}/users/${uid}/work_records`);
         const q = query(workLogCollectionRef, where("monthYear", "==", monthString), where("userId", "==", uid));
         const newWorkLog = {}; 
         try {
@@ -712,10 +713,13 @@ const App = () => {
                 customBaseSalarySystem1: null, customOvertimeRateSystem1: null,
                 customDailyRateSystem2: null, customTargetHoursSystem2: null,
             };
-            await setDoc(doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{user.uid}`), initialProfileData);
-            await setDoc(doc(db, `artifacts/<span class="math-inline">\{appId\}/public/data/user\_registry/</span>{user.uid}`), {
-                name: name, email: user.email, userId: user.uid 
+            await setDoc(doc(db, `artifacts/${appId}/users/${user.uid}`), initialProfileData);
+            await setDoc(doc(db, `artifacts/${appId}/public/data/user_registry/${user.uid}`), {
+                name: name,
+                email: user.email,
+                userId: user.uid
             });
+
             
             toast.success(`Registrasi berhasil! ${isFirstUser ? 'Anda Admin.' : ''} Silakan login.`);
             setName(''); setEmail(''); setPassword('');
@@ -758,9 +762,9 @@ const App = () => {
         }
         try {
             await updateProfile(currentUser, { displayName: profileName });
-            const userDocRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{currentUser.uid}`);
+            const userDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
             await updateDoc(userDocRef, { name: profileName });
-            const userRegistryRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/public/data/user\_registry/</span>{currentUser.uid}`);
+            const userRegistryRef = doc(db, `artifacts/${appId}/public/data/user_registry/${currentUser.uid}`);
             await updateDoc(userRegistryRef, { name: profileName });
             setUserName(profileName); 
             toast.success("Profil berhasil diperbarui!");
@@ -813,7 +817,7 @@ const App = () => {
                 const empId = registryData.userId || userRegDoc.id;
                 if (!empId) continue;
 
-                const userProfileRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{empId}`);
+                const userProfileRef = doc(db, `artifacts/${appId}/users/${uId}`);
                 const userProfileSnap = await getDoc(userProfileRef);
 
                 if (userProfileSnap.exists()) {
@@ -860,7 +864,7 @@ const App = () => {
         const initialEditingLogs = {};
         const daysInSelectedMonth = getDaysInMonth(selectedYearAdmin, selectedMonthAdmin);
         for (let day = 1; day <= daysInSelectedMonth; day++) {
-            const dateKey = `<span class="math-inline">\{selectedYearAdmin\}\-</span>{String(selectedMonthAdmin + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dateKey = `${selectedYearAdmin}-${String(selectedMonthAdmin + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const existingLog = employee.workLogsForMonth[dateKey];
             initialEditingLogs[dateKey] = {
                 totalWorkDurationMinutes: existingLog ? (existingLog.totalWorkDurationMinutes || 0) : 0,
@@ -910,7 +914,7 @@ const App = () => {
                 const editedLogData = editingWorkLogsModal[dateKey];
 
                 const dateObj = new Date(dateKey + "T00:00:00");
-                const monthYear = `<span class="math-inline">\{dateObj\.getFullYear\(\)\}\-</span>{String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+                const monthYear = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
                 
                 let dataToSave = {
                     dateStr: dateKey, monthYear: monthYear, userId: editingEmployee.id,
@@ -937,7 +941,7 @@ const App = () => {
                     dataToSave.sessions = []; 
                 }
 
-                const recordRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{editingEmployee.id}/work_records`, dateKey); 
+                const recordRef = doc(db, `artifacts/${appId}/users/${editingEmployee.id}/work_records/${dateKey}`);
 
                 if (!originalLog && (editedLogData.totalWorkDurationMinutes > 0 || dataToSave.entryMethod === 'absence_reason')) { 
                     batch.set(recordRef, dataToSave);
@@ -979,7 +983,7 @@ const App = () => {
     };
 
     const openUserSettingsModal = async (employeeId) => {
-        const userDocRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{employeeId}`);
+        const userDocRef = doc(db, `artifacts/${appId}/users/${employeeId}`);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
             const data = userDocSnap.data();
@@ -1044,18 +1048,18 @@ const App = () => {
     
         setIsLoadingData(true);
         try {
-            const userProfileRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{employeeId}`);
+            const userProfileRef = doc(db, `artifacts/${appId}/users/${employeeId}`);
             await updateDoc(userProfileRef, { isActive: false });
             toast.info(`Akun ${employeeName} telah dinonaktifkan.`);
-            await logAdminActivity(currentUser, "DEACTIVATE_USER", { reason: "Deactivated and data deleted by admin" }, {id: employeeId, name: employeeName});
-    
-            const userRegistryRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/public/data/user\_registry/</span>{employeeId}`);
+            await logAdminActivity(currentUser, "DEACTIVATE_USER", { reason: "Deactivated and data deleted by admin" }, { id: employeeId, name: employeeName });
+
+            const userRegistryRef = doc(db, `artifacts/${appId}/public/data/user_registry/${employeeId}`);
             await deleteDoc(userRegistryRef);
             toast.info(`Entri registri untuk ${employeeName} telah dihapus.`);
-    
-            const workLogCollectionRef = collection(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{employeeId}/work_records`);
+
+            const workLogCollectionRef = collection(db, `artifacts/${appId}/users/${employeeId}/work_records`);
             const workLogSnapshot = await getDocs(workLogCollectionRef);
-            const batchDelete = writeBatch(db); 
+            const batchDelete = writeBatch(db);
             workLogSnapshot.forEach((doc) => {
                 batchDelete.delete(doc.ref);
             });
@@ -1063,10 +1067,10 @@ const App = () => {
             if (workLogSnapshot.size > 0) {
                 toast.info(`Semua (${workLogSnapshot.size}) catatan kerja untuk ${employeeName} telah dihapus.`);
             }
-    
+
             toast.success(`Proses untuk ${employeeName} selesai. Akun nonaktif dan data terkait telah dihapus.`);
-            fetchAllEmployeeDataForMonth(selectedYearAdmin, selectedMonthAdmin); 
-            setIsUserSettingsModalOpen(false); 
+            fetchAllEmployeeDataForMonth(selectedYearAdmin, selectedMonthAdmin);
+            setIsUserSettingsModalOpen(false);
             if (adminSelectedEmployeeForMonitor?.id === employeeId) {
                 setAdminSelectedEmployeeForMonitor(null);
                 setAdminMonitorWorkLog({});
@@ -1083,8 +1087,8 @@ const App = () => {
 
     const handleSaveUserSettings = async () => {
         if (!editingUserSettings || !editingUserSettings.id || !currentUser) return;
-        const userDocRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{editingUserSettings.id}`);
-        const userRegistryRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/public/data/user\_registry/</span>{editingUserSettings.id}`);
+        const userDocRef = doc(db, `artifacts/${appId}/users/${editingUserSettings.id}`);
+        const userRegistryRef = doc(db, `artifacts/${appId}/public/data/user_registry/${editingUserSettings.id}`);
         const oldSettingsSnap = await getDoc(userDocRef);
         const oldSettings = oldSettingsSnap.exists() ? oldSettingsSnap.data() : {};
 
@@ -1214,7 +1218,7 @@ const App = () => {
                     profile: userDoc.data(),
                     workRecords: []
                 };
-                const workRecordsRef = collection(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{userDoc.id}/work_records`);
+                const workRecordsRef = collection(db, `artifacts/${appId}/users/${userDoc.id}/work_records`);
                 const workRecordsSnap = await getDocs(workRecordsRef);
                 workRecordsSnap.forEach(wrDoc => userData.workRecords.push({ id: wrDoc.id, ...wrDoc.data() }));
                 backupData.users.push(userData);
@@ -1225,7 +1229,7 @@ const App = () => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = `backup-gaji-<span class="math-inline">\{appId\}\-</span>{getDateString(new Date())}.json`;
+            link.download = `backup-gaji-${appId}-${getDateString(new Date())}.json`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1233,6 +1237,7 @@ const App = () => {
 
             toast.success("Backup data berhasil diunduh!");
             await logAdminActivity(currentUser, "BACKUP_DATA", { filename: link.download });
+
 
         } catch (error) {
             console.error("Error during backup:", error);
@@ -1314,7 +1319,7 @@ const App = () => {
                 
                 const currentUsersSnap = await getDocs(collection(db, `artifacts/${appId}/users`));
                 for (const userDoc of currentUsersSnap.docs) {
-                    const currentWorkRecordsSnap = await getDocs(collection(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{userDoc.id}/work_records`));
+                    const currentWorkRecordsSnap = await getDocs(collection(db, `artifacts/${appId}/users/${userDoc.id}/work_records`));
                     currentWorkRecordsSnap.forEach(wrDoc => batch.delete(wrDoc.ref));
                     batch.delete(userDoc.ref);
                 }
@@ -1327,13 +1332,14 @@ const App = () => {
 
                         if (workRecords) {
                             workRecords.forEach(wrEntry => {
-                                const wrRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{userData.id}/work_records`, wrEntry.id);
+                                const wrRef = doc(db, `artifacts/${appId}/users/${userData.id}/work_records`, wrEntry.id);
                                 const { id: wrId, ...wrDataToSet } = wrEntry;
                                 batch.set(wrRef, wrDataToSet);
                             });
                         }
                     }
                 }
+
                 
                 await batch.commit();
                 toast.success("Data berhasil direstore! Aplikasi mungkin perlu di-refresh.");
@@ -1405,7 +1411,7 @@ const App = () => {
                 const empId = employeeDataFromRegistry.userId || userDocInRegistry.id;
                 if (!empId) return null;
     
-                const userProfileRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{empId}`);
+                const userProfileRef = doc(db, `artifacts/${appId}/users/${empId}`);
                 const userProfileSnap = await getDoc(userProfileRef);
     
                 if (!userProfileSnap.exists() || !userProfileSnap.data().isActive) {
@@ -1413,8 +1419,8 @@ const App = () => {
                 }
                 const profileData = userProfileSnap.data();
     
-                const workLogCollectionRef = collection(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{empId}/work_records`);
-                const monthString = `<span class="math-inline">\{year\}\-</span>{String(month + 1).padStart(2, '0')}`;
+                const workLogCollectionRef = collection(db, `artifacts/${appId}/users/${empId}/work_records`);
+                const monthString = `${year}-${String(month + 1).padStart(2, '0')}`;
                 const qLogs = query(workLogCollectionRef, where("monthYear", "==", monthString), where("userId", "==", empId));
                 const workRecordsSnap = await getDocs(qLogs);
                 
@@ -1611,8 +1617,8 @@ const App = () => {
         
             const dateObj = new Date(selectedDateInput + "T00:00:00");
             const dateStr = selectedDateInput;
-            const monthYear = `<span class="math-inline">\{dateObj\.getFullYear\(\)\}\-</span>{String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-            const recordPath = `artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/work_records`;
+            const monthYear = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+            const recordPath = `artifacts/${appId}/users/${userId}/work_records`;
             const recordRef = doc(db, recordPath, dateStr); 
         
             try {
@@ -1686,8 +1692,8 @@ const App = () => {
 
             const dateObj = new Date(selectedDateInput + "T00:00:00");
             const dateStr = selectedDateInput;
-            const monthYear = `<span class="math-inline">\{dateObj\.getFullYear\(\)\}\-</span>{String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-            const recordPath = `artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/work_records`;
+            const monthYear = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+            const recordPath = `artifacts/${appId}/users/${userId}/work_records`;
             const recordRef = doc(db, recordPath, dateStr); 
             
             const dataToSave = {
@@ -1722,8 +1728,8 @@ const App = () => {
 
             const dateObj = new Date(selectedDateInput + "T00:00:00");
             const dateStr = selectedDateInput;
-            const monthYear = `<span class="math-inline">\{dateObj\.getFullYear\(\)\}\-</span>{String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-            const recordPath = `artifacts/<span class="math-inline">\{appId\}/users/</span>{userId}/work_records`;
+            const monthYear = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+            const recordPath = `artifacts/${appId}/users/${userId}/work_records`;
             const recordRef = doc(db, recordPath, dateStr); 
 
             const dataToSave = {
@@ -1793,7 +1799,7 @@ const App = () => {
         const daysInSelectedMonth = getDaysInMonth(currentDateDisplay.getFullYear(), currentDateDisplay.getMonth());
         for(let i = 0; i < firstDayOfMonth; i++) monthDays.push(<div key={`empty-${i}`} className="p-2"></div>); 
         for(let day = 1; day <= daysInSelectedMonth; day++) {
-            const dateStr = `<span class="math-inline">\{currentDateDisplay\.getFullYear\(\)\}\-</span>{String(currentDateDisplay.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dateStr = `${currentDateDisplay.getFullYear()}-${String(currentDateDisplay.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const logForDay = workLog[dateStr];
             let bgColor = theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-white hover:bg-gray-100';
             
@@ -2022,8 +2028,8 @@ const App = () => {
     const fetchWorkLogForAdminMonitor = useCallback(async (employeeId, year, month) => {
         if (!db || !employeeId || !appId) return {};
         setIsLoadingAdminMonitor(true);
-        const monthString = `<span class="math-inline">\{year\}\-</span>{String(month + 1).padStart(2, '0')}`;
-        const workLogCollectionRef = collection(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{employeeId}/work_records`);
+        const monthString = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const workLogCollectionRef = collection(db, `artifacts/${appId}/users/${employeeId}/work_records`);
         const q = query(workLogCollectionRef, where("monthYear", "==", monthString), where("userId", "==", employeeId));
         const newWorkLog = {};
         try {
@@ -2087,7 +2093,7 @@ const App = () => {
                     };
                 } else { 
                     try {
-                        const userProfileRef = doc(db, `artifacts/<span class="math-inline">\{appId\}/users/</span>{employeeId}`);
+                        const userProfileRef = doc(db, `artifacts/${appId}/users/${employeeId}`);
                         const userProfileSnap = await getDoc(userProfileRef);
                         if (userProfileSnap.exists()) {
                             profileToSet = { id: employeeId, ...userProfileSnap.data() };
@@ -2139,7 +2145,7 @@ const App = () => {
             for (let i = 0; i < firstDayOfMonth; i++) monthDays.push(<div key={`empty-monitor-${i}`} className="p-1 sm:p-2 border border-transparent"></div>);
 
             for (let day = 1; day <= daysInSelectedMonth; day++) {
-                const dateStr = `<span class="math-inline">\{year\}\-</span>{String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const logForDay = adminMonitorWorkLog[dateStr];
                 let bgColor = theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-white hover:bg-gray-100';
                 let textColor = theme === 'dark' ? 'text-slate-300' : 'text-slate-700';
@@ -2313,14 +2319,14 @@ const App = () => {
                             <label htmlFor="monthYearAdmin" className="block text-sm font-medium mb-1">Pilih Periode (Bulan & Tahun):</label>
                             <input
                                 type="month" id="monthYearAdmin"
-                                value={`<span class="math-inline">\{selectedYearAdmin\}\-</span>{String(selectedMonthAdmin + 1).padStart(2, '0')}`}
+                                value={`${selectedYearAdmin}-${String(selectedMonthAdmin + 1).padStart(2, '0')}`}
                                 onChange={handleMonthYearChange}
                                 className={`mt-1 block w-full sm:w-auto px-3 py-2 border ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
                             />
                         </div>
                         {activeAdminTab === 'salaryReport' && ( 
                             <button 
-                                onClick={() => exportToCSV(adminSalaries, `LaporanGaji-<span class="math-inline">\{selectedYearAdmin\}\-</span>{selectedMonthAdmin+1}.csv`)}
+                                onClick={() => exportToCSV(adminSalaries, `LaporanGaji-${selectedYearAdmin}-${selectedMonthAdmin+1}.csv`)}
                                 className={`flex items-center gap-2 mt-3 sm:mt-0 px-4 py-2 rounded-lg text-sm font-medium text-white ${theme === 'dark' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-teal-500 hover:bg-teal-600'} transition duration-150`}
                                 disabled={adminSalaries.length === 0 || isLoadingData}
                             >
@@ -2420,7 +2426,7 @@ const App = () => {
                             <label htmlFor="monthYearAnalytics" className="block text-sm font-medium mb-1">Pilih Bulan dan Tahun:</label>
                             <input
                                 type="month" id="monthYearAnalytics"
-                                value={`<span class="math-inline">\{selectedYearAnalytics\}\-</span>{String(selectedMonthAnalytics + 1).padStart(2, '0')}`}
+                                value={`${selectedYearAnalytics}-${String(selectedMonthAnalytics + 1).padStart(2, '0')}`}
                                 onChange={handleAnalyticsMonthYearChange}
                                 className={`mt-1 block w-full sm:w-auto px-3 py-2 border ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
                             />
